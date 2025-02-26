@@ -2,6 +2,7 @@ name: Release Native
 on:
   release:
     types: [ published ]
+  push:
   workflow_dispatch:
     inputs:
       version:
@@ -60,7 +61,6 @@ jobs:
           asset_content_type: application/zip
   dockerize:
     needs: [ scala-native ]
-    if: ${{ github.event_name == 'release' == success() }}
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       matrix:
@@ -76,6 +76,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event_name == 'release' && github.run_id || github.event.inputs.run_id }}
       - name: Login to DockerHub
+        if: ${{ github.event_name == 'release' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -88,7 +89,7 @@ jobs:
         with:
           context: .
           platforms: ${{ matrix.platform }}
-          push: true
+          push: false
           outputs: type=image,"name=scalameta/scalafmt",push-by-digest=true,name-canonical=true
       - name: Export digest
         run: |
@@ -113,6 +114,7 @@ jobs:
           pattern: digests-*
           merge-multiple: true
       - name: Login to Docker Hub
+        if: ${{ github.event_name == 'release' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -125,14 +127,14 @@ jobs:
           tags: type=raw,value=${{ github.event_name == 'release' && github.event.release.tag_name || github.event.inputs.version }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Create manifest list and push
-        working-directory: ${{ runner.temp }}/digests
-        run: |
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf 'scalameta/scalafmt@sha256:%s ' *)
-      - name: Inspect image
-        run: |
-          docker buildx imagetools inspect scalameta/scalafmt:${{ steps.meta.outputs.tags }}
+      # - name: Create manifest list and push
+      #   working-directory: ${{ runner.temp }}/digests
+      #   run: |
+      #     docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+      #       $(printf 'scalameta/scalafmt@sha256:%s ' *)
+      # - name: Inspect image
+      #   run: |
+      #     docker buildx imagetools inspect scalameta/scalafmt:${{ steps.meta.outputs.tags }}
   native-image: # deprecated, will soon be removed
     if: github.event_name == 'release'
     permissions:
