@@ -90,7 +90,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VERSION=3.9.9
+            VERSION=v3.9.9
           push: false
           tags: ${{ steps.meta.outputs.tags }}
   native-image: # deprecated, will soon be removed
